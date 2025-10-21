@@ -67,13 +67,13 @@ const agreement = {
     { id: "ATT-1", name: "Vertrag (PDF)", url: "https://dms.example/agreements/AGR-2025-000123.pdf", mimeType: "application/pdf", lastModified: "2025-03-26" },
     { id: "ATT-2", name: "Nachtrag Router", url: "https://dms.example/agreements/AGR-2025-000123-annex.pdf", mimeType: "application/pdf", lastModified: "2025-03-26" }
   ],
+  customer: { name: "Max Mustermann", phone: "0123/4567891", address: "Musterstrasse 1, 12345 Musterstadt" },
+  provider: "Beispiel Telco GmbH",
   characteristic: [
     { name: "ContractType", value: "B2B" },
     { name: "Jurisdiction", value: "DE" },
     { name: "CostCenter", value: "4711" }
   ],
-  customer: { name: "Max Mustermann", phone: "0123/4567891", address: "Musterstrasse 1, 12345 Musterstadt" },
-  provider: "Beispiel Telco GmbH",
   billing: {
     currency: "EUR",
     taxPercent: 19,
@@ -91,6 +91,16 @@ const agreement = {
     ],
     payments: [
       { id: "PAY-2025-09-1001", date: "2025-09-10", amount: 129.80, currency: "EUR", method: "SEPA-Lastschrift", billRef: "INV-2025-08-0001" }
+    ]
+  },
+  orders: {
+    documents: [
+      { docId: "OD-0001", orderId: "ORD-2025-000045", name: "Auftragseingangsbestätigung", type: "orderIntakeAck", milestone: "Eingang bestätigt", version: "v1.0", sentDate: "2025-03-26", channel: "E-Mail", status: "sent", url: "https://dms.example/orders/ORD-2025-000045-intake-ack.pdf" },
+      { docId: "OD-0002", orderId: "ORD-2025-000045", name: "Auftragsbestätigung", type: "orderConfirmation", milestone: "Auftrag bestätigt", version: "v1.0", sentDate: "2025-03-26", channel: "E-Mail", status: "sent", url: "https://dms.example/orders/ORD-2025-000045-confirmation.pdf" },
+      { docId: "OD-0003", orderId: "ORD-2025-000045", name: "Ortstermin vereinbart", type: "siteVisitScheduled", milestone: "Ortstermin vereinbart", version: "v1.0", sentDate: "2025-04-02", channel: "E-Mail", status: "sent", url: "https://dms.example/orders/ORD-2025-000045-sitevisit-scheduled.pdf" },
+      { docId: "OD-0004", orderId: "ORD-2025-000045", name: "Ortstermin abgeschlossen", type: "siteVisitCompleted", milestone: "Ortstermin abgeschlossen", version: "v1.0", sentDate: "2025-04-10", channel: "E-Mail", status: "sent", url: "https://dms.example/orders/ORD-2025-000045-sitevisit-completed.pdf" },
+      { docId: "OD-0005", orderId: "ORD-2025-000045", name: "Baugenehmigung beauftragt", type: "constructionPermitRequested", milestone: "Genehmigung beauftragt", version: "v1.0", sentDate: "2025-05-05", channel: "E-Mail", status: "sent", url: "https://dms.example/orders/ORD-2025-000045-permit-requested.pdf" },
+      { docId: "OD-0006", orderId: "ORD-2025-000045", name: "Baubeginn", type: "constructionStart", milestone: "Baubeginn", version: "v1.0", sentDate: "2025-06-01", channel: "E-Mail", status: "sent", url: "https://dms.example/orders/ORD-2025-000045-construction-start.pdf" }
     ]
   }
 };
@@ -159,6 +169,7 @@ function EntrySite({ agreements, onOpen }: { agreements: any[]; onOpen: (id: str
                   <Th>Laufzeit</Th>
                   <Th>Produkte (Kurz)</Th>
                   <Th className="text-right">Ø Monat (netto)</Th>
+                  <Th>Order-Doks</Th>
                   <Th>Aktion</Th>
                 </tr>
               </thead>
@@ -175,6 +186,9 @@ function EntrySite({ agreements, onOpen }: { agreements: any[]; onOpen: (id: str
                       <Td>{fmtDate(a.effectivePeriod.startDateTime)} – {fmtDate(a.effectivePeriod.endDateTime)}</Td>
                       <Td className="text-sm text-muted-foreground">{a.agreementItem.map((it:any)=>it.name).join(" • ")}</Td>
                       <Td className="text-right">{toCurrency(sums.net, a.billing.currency)}</Td>
+                      <Td>
+                        <Badge variant="outline">{(a.orders?.documents?.length ?? 0)} Dokumente</Badge>
+                      </Td>
                       <Td>
                         <Button size="sm" className="gap-2" onClick={()=>onOpen(a.id)}><FileText className="h-4 w-4"/>Öffnen</Button>
                       </Td>
@@ -232,6 +246,7 @@ function AgreementDetail({ agreement, onBack }: { agreement: any, onBack?: () =>
           <TabsTrigger value="parties" className="gap-2"><Users className="h-4 w-4"/>Parteien</TabsTrigger>
           <TabsTrigger value="terms" className="gap-2"><ShieldCheck className="h-4 w-4"/>Klauseln</TabsTrigger>
           <TabsTrigger value="attachments" className="gap-2"><Paperclip className="h-4 w-4"/>Dokumente</TabsTrigger>
+          <TabsTrigger value="orders" className="gap-2"><FileText className="h-4 w-4"/>Order</TabsTrigger>
           <TabsTrigger value="characteristics" className="gap-2"><Globe className="h-4 w-4"/>Erweiterungen</TabsTrigger>
           <TabsTrigger value="spec" className="gap-2"><FileText className="h-4 w-4"/>Vorlage</TabsTrigger>
           <TabsTrigger value="history" className="gap-2"><History className="h-4 w-4"/>Historie</TabsTrigger>
@@ -462,6 +477,48 @@ function AgreementDetail({ agreement, onBack }: { agreement: any, onBack?: () =>
                         <Td>{a.name}</Td>
                         <Td>{a.mimeType}</Td>
                         <Td>{a.lastModified}</Td>
+                        <Td>
+                          <Button variant="outline" size="sm" className="gap-2"><FileText className="h-4 w-4"/>Öffnen</Button>
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Orders */}
+        <TabsContent value="orders">
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full border-separate border-spacing-0" role="table" aria-busy={false} data-testid="tbl-orders">
+                  <thead className="bg-gray-100" role="rowgroup">
+                    <tr role="row">
+                      <Th>Dokument</Th>
+                      <Th>Order-ID</Th>
+                      <Th>Typ</Th>
+                      <Th>Meilenstein</Th>
+                      <Th>Version</Th>
+                      <Th>Gesendet am</Th>
+                      <Th>Kanal</Th>
+                      <Th>Status</Th>
+                      <Th>Aktion</Th>
+                    </tr>
+                  </thead>
+                  <tbody role="rowgroup">
+                    {(agreement.orders?.documents || []).map(d => (
+                      <tr key={d.docId} role="row" className="hover:bg-gray-50">
+                        <Td>{d.name}</Td>
+                        <Td><Badge variant="outline">{d.orderId}</Badge></Td>
+                        <Td>{d.type}</Td>
+                        <Td>{d.milestone || "—"}</Td>
+                        <Td>{d.version}</Td>
+                        <Td>{d.sentDate}</Td>
+                        <Td>{d.channel}</Td>
+                        <Td><StatusBadge value={d.status}/></Td>
                         <Td>
                           <Button variant="outline" size="sm" className="gap-2"><FileText className="h-4 w-4"/>Öffnen</Button>
                         </Td>
